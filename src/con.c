@@ -1222,6 +1222,16 @@ bool con_move_to_mark(Con *con, const char *mark) {
     return _con_move_to_con(con, target, false, true, false, false, true);
 }
 
+void con_move_transient(Con* con, Con* target, bool fix_coordinates, bool dont_warp, bool ignore_focus) {
+    if (! con->window) return;
+    Con* child;
+    TAILQ_FOREACH(child, &all_cons, all_cons)
+        if (child != con && child->window != NULL && child->window->transient_for == con->window->id && con_is_floating(child)) {
+            _con_move_to_con(child->parent, target, true, fix_coordinates, dont_warp, ignore_focus, true);
+            con_move_transient(child, target, fix_coordinates, dont_warp, ignore_focus);
+        }
+}
+
 /*
  * Moves the given container to the currently focused container on the given
  * workspace.
@@ -1251,8 +1261,31 @@ void con_move_to_workspace(Con *con, Con *workspace, bool fix_coordinates, bool 
         return;
     }
 
+    /*
+     * keep floating windows and their transient parents together
+     */
+    if (con->type == CT_FLOATING_CON) con = con_descend_focused(con);
+    if (con_is_floating(con)) {
+        Con *current, *transient_con = NULL;
+        TRANSIENT_FOREACH(current, con) transient_con = current;
+
+        if (transient_con) {
+            DLOG("Floating container, moving transient_for instead\n");
+            con_move_to_workspace(transient_con, workspace, fix_coordinates, dont_warp, ignore_focus);
+        }
+        return;
+    }
+
     Con *target = con_descend_focused(workspace);
     _con_move_to_con(con, target, true, fix_coordinates, dont_warp, ignore_focus, true);
+
+    /*
+     * move any floating windows associated with con
+     */
+    Con* current;
+    con_move_transient(con, target, fix_coordinates, dont_warp, ignore_focus);
+    TAILQ_FOREACH(current, &(con->nodes_head), all_cons)
+        con_move_transient(current, target, fix_coordinates, dont_warp, ignore_focus);
 }
 
 /*
