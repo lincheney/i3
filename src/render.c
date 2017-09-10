@@ -209,6 +209,17 @@ static int *precalculate_sizes(Con *con, render_params *p) {
     return sizes;
 }
 
+void render_transient_chain(Con* con) {
+    if (! con->window) return;
+    Con* child;
+    TAILQ_FOREACH(child, &all_cons, all_cons)
+        if (child != con && child->window != NULL && child->window->transient_for == con->window->id && con_is_floating(child)) {
+            x_raise_con(child->parent);
+            render_con(child->parent, false);
+            render_transient_chain(child);
+        }
+}
+
 static void render_root(Con *con, Con *fullscreen) {
     Con *output;
     if (!fullscreen) {
@@ -246,29 +257,19 @@ static void render_root(Con *con, Con *fullscreen) {
                 continue;
             if (fullscreen != NULL && fullscreen->window != NULL) {
                 Con *floating_child = con_descend_focused(child);
-                Con *transient_con = floating_child;
+                Con *transient_con;
                 bool is_transient_for = false;
                 /* Exception to the above rule: smart
                  * popup_during_fullscreen handling (popups belonging to
                  * the fullscreen app will be rendered). */
-                while (transient_con != NULL &&
-                       transient_con->window != NULL &&
-                       transient_con->window->transient_for != XCB_NONE) {
+
+                TRANSIENT_FOREACH(transient_con, floating_child) {
                     DLOG("transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, fullscreen_id = 0x%08x\n",
                          transient_con->window->id, transient_con->window->transient_for, fullscreen->window->id);
                     if (transient_con->window->transient_for == fullscreen->window->id) {
                         is_transient_for = true;
                         break;
                     }
-                    Con *next_transient = con_by_window_id(transient_con->window->transient_for);
-                    if (next_transient == NULL)
-                        break;
-                    /* Some clients (e.g. x11-ssh-askpass) actually set
-                     * WM_TRANSIENT_FOR to their own window id, so break instead of
-                     * looping endlessly. */
-                    if (transient_con == next_transient)
-                        break;
-                    transient_con = next_transient;
                 }
 
                 if (!is_transient_for)
@@ -279,12 +280,29 @@ static void render_root(Con *con, Con *fullscreen) {
                          floating_child->window->transient_for, fullscreen->window->id);
                 }
             }
+
             DLOG("floating child at (%d,%d) with %d x %d\n",
                  child->rect.x, child->rect.y, child->rect.width, child->rect.height);
             x_raise_con(child);
             render_con(child, false);
         }
     }
+
+    Con* current;
+    /* always render focused con on top
+     * but not if it is detached
+     */
+    TAILQ_FOREACH(current, &(focused->parent->focus_head), focused)
+        if (current == focused) {
+            DLOG("Rendering focused con %p on top\n", focused->parent);
+            /* render parent to fix decorations */
+            x_raise_con(focused->parent);
+            render_con(focused->parent, false);
+            render_transient_chain(focused);
+            TAILQ_FOREACH(current, &(focused->nodes_head), all_cons)
+                render_transient_chain(current);
+            break;
+        }
 }
 
 /*

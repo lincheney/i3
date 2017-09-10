@@ -2376,3 +2376,11 @@ swap_end:
 
     return result;
 }
+
+Con* con_transient_for(Con* con) {
+    if (con && con->window && con->window->transient_for != XCB_NONE) {
+        Con* transient_con = con_by_window_id(con->window->transient_for);
+        if (transient_con != con) return transient_con;
+    }
+    return NULL;
+}
