@@ -250,40 +250,8 @@ static void render_root(Con *con, Con *fullscreen) {
         Con *fullscreen = con_get_fullscreen_con(workspace, CF_OUTPUT);
         Con *child;
         TAILQ_FOREACH(child, &(workspace->floating_head), floating_windows) {
-            /* Don’t render floating windows when there is a fullscreen window
-             * on that workspace. Necessary to make floating fullscreen work
-             * correctly (ticket #564). */
-            /* If there is no fullscreen->window, this cannot be a
-             * transient window, so we _know_ we need to skip it. This
-             * happens during restarts where the container already exists,
-             * but the window was not yet associated. */
-            if (fullscreen != NULL && fullscreen->window == NULL)
-                continue;
-            if (fullscreen != NULL && fullscreen->window != NULL) {
-                Con *floating_child = con_descend_focused(child);
-                Con *transient_con;
-                bool is_transient_for = false;
-                /* Exception to the above rule: smart
-                 * popup_during_fullscreen handling (popups belonging to
-                 * the fullscreen app will be rendered). */
-
-                TRANSIENT_FOREACH(transient_con, floating_child) {
-                    DLOG("transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, fullscreen_id = 0x%08x\n",
-                         transient_con->window->id, transient_con->window->transient_for, fullscreen->window->id);
-                    if (transient_con->window->transient_for == fullscreen->window->id) {
-                        is_transient_for = true;
-                        break;
-                    }
-                }
-
-                if (!is_transient_for)
-                    continue;
-                else {
-                    DLOG("Rendering floating child even though in fullscreen mode: "
-                         "floating->transient_for (0x%08x) --> fullscreen->id (0x%08x)\n",
-                         floating_child->window->transient_for, fullscreen->window->id);
-                }
-            }
+            /* fullscreen is handled later on */
+            if (fullscreen) continue;
 
             DLOG("floating child at (%d,%d) with %d x %d\n",
                  child->rect.x, child->rect.y, child->rect.width, child->rect.height);
@@ -296,17 +264,71 @@ static void render_root(Con *con, Con *fullscreen) {
     /* always render focused con on top
      * but not if it is detached
      */
-    TAILQ_FOREACH(current, &(focused->parent->focus_head), focused)
-        if (current == focused) {
-            DLOG("Rendering focused con %p on top\n", focused->parent);
-            /* render parent to fix decorations */
-            x_raise_con(focused->parent);
-            render_con(focused->parent, false);
-            render_transient_chain(focused);
-            TAILQ_FOREACH(current, &(focused->nodes_head), all_cons)
-                render_transient_chain(current);
-            break;
+    if (focused->parent)
+        TAILQ_FOREACH(current, &(focused->parent->focus_head), focused)
+            if (current == focused) {
+                /* skip if other window is fullscreen */
+                Con *fullscreen = con_get_fullscreen_con(con_get_workspace(focused), CF_OUTPUT);
+                if (fullscreen && fullscreen != focused) break;
+
+                DLOG("Rendering focused con %p on top\n", focused->parent);
+                /* render parent to fix decorations */
+                x_raise_con(focused->parent);
+                render_con(focused->parent, false);
+                render_transient_chain(focused);
+                TAILQ_FOREACH(current, &(focused->nodes_head), all_cons)
+                    render_transient_chain(current);
+                break;
+            }
+
+    TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
+        if (con_is_internal(output))
+            continue;
+        /* Get the active workspace of that output */
+        Con *content = output_get_content(output);
+        if (!content || TAILQ_EMPTY(&(content->focus_head))) {
+            DLOG("Skipping this output because it is currently being destroyed.\n");
+            continue;
         }
+        Con *workspace = TAILQ_FIRST(&(content->focus_head));
+        Con *fullscreen = con_get_fullscreen_con(workspace, CF_OUTPUT);
+        Con *child;
+        TAILQ_FOREACH(child, &(workspace->floating_head), floating_windows) {
+            /* Don’t render floating windows when there is a fullscreen window
+             * on that workspace. Necessary to make floating fullscreen work
+             * correctly (ticket #564). */
+            /* If there is no fullscreen->window, this cannot be a
+             * transient window, so we _know_ we need to skip it. This
+             * happens during restarts where the container already exists,
+             * but the window was not yet associated. */
+            if (fullscreen != NULL && fullscreen->window == NULL)
+                continue;
+
+            Con *floating_child = con_descend_focused(child);
+            /* skip if transient for another */
+            if (!floating_child->window || (floating_child->window->transient_for != XCB_NONE && con_by_window_id(floating_child->window->transient_for)))
+                continue;
+
+            if (fullscreen != NULL && fullscreen->window != NULL) {
+                /* Exception to the above rule: smart
+                 * popup_during_fullscreen handling (popups belonging to
+                 * the fullscreen app will be rendered). */
+
+                if (!floating_child->window || floating_child->window->transient_for != fullscreen->window->id)
+                    continue;
+
+                /* DLOG("floating_child = 0x%08x, floating_child->window->transient_for = 0x%08x, fullscreen_id = 0x%08x\n", */
+                        /* floating_child->window->id, floating_child->window->transient_for, fullscreen->window->id); */
+                DLOG("Rendering floating child even though in fullscreen mode: "
+                     "floating->transient_for (0x%08x) --> fullscreen->id (0x%08x)\n",
+                     floating_child->window->transient_for, fullscreen->window->id);
+            }
+
+            x_raise_con(child);
+            render_con(child, false);
+            render_transient_chain(child);
+        }
+    }
 }
 
 /*
