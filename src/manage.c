@@ -252,6 +252,21 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
 
     DLOG("Initial geometry: (%d, %d, %d, %d)\n", geom->x, geom->y, geom->width, geom->height);
 
+    /* set floating if necessary */
+    bool want_floating = false;
+    if (xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_DIALOG) ||
+        xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_UTILITY) ||
+        xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_TOOLBAR) ||
+        xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_SPLASH) ||
+        xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_MODAL) ||
+        (wm_size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE &&
+         wm_size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE &&
+         wm_size_hints.min_height == wm_size_hints.max_height &&
+         wm_size_hints.min_width == wm_size_hints.max_width)) {
+        LOG("This window is a dialog window, setting floating\n");
+        want_floating = true;
+    }
+
     Con *nc = NULL;
     Match *match = NULL;
     Assignment *assignment;
@@ -302,6 +317,11 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
                 nc = tree_open_con(nc, cwindow);
             else
                 nc = tree_open_con(nc->parent, cwindow);
+        } else if (want_floating &&
+                cwindow->transient_for != XCB_NONE &&
+                (nc = con_by_window_id(cwindow->transient_for)) ) {
+            /* floating window: start on ws of transient parent */
+            nc = tree_open_con(con_get_workspace(nc), cwindow);
         } else {
             /* If not, insert it at the currently focused position */
             if (focused->type == CT_CON && con_accepts_window(focused)) {
@@ -415,21 +435,6 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
             TAILQ_REMOVE(&(nc->parent->focus_head), nc, focused);
             TAILQ_INSERT_AFTER(&(nc->parent->focus_head), first, nc, focused);
         }
-    }
-
-    /* set floating if necessary */
-    bool want_floating = false;
-    if (xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_DIALOG) ||
-        xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_UTILITY) ||
-        xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_TOOLBAR) ||
-        xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_SPLASH) ||
-        xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_MODAL) ||
-        (wm_size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE &&
-         wm_size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE &&
-         wm_size_hints.min_height == wm_size_hints.max_height &&
-         wm_size_hints.min_width == wm_size_hints.max_width)) {
-        LOG("This window is a dialog window, setting floating\n");
-        want_floating = true;
     }
 
     if (xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_STICKY))
