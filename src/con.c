@@ -200,6 +200,12 @@ void con_focus(Con *con) {
     assert(con != NULL);
     DLOG("con_focus = %p\n", con);
 
+    /* focus transient parent, if any */
+    if (con_is_floating(con)) {
+        Con* transient_con = con_transient_for(con);
+        if (transient_con) con_focus(transient_con);
+    }
+
     /* 1: set focused-pointer to the new con */
     /* 2: exchange the position of the container in focus stack of the parent all the way up */
     TAILQ_REMOVE(&(con->parent->focus_head), con, focused);
