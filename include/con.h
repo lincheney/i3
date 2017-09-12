@@ -486,10 +486,7 @@ bool con_swap(Con *first, Con *second);
  */
 Con* con_transient_for(Con* con);
 
-/* Some clients (e.g. x11-ssh-askpass) actually set
- * WM_TRANSIENT_FOR to their own window id, so break instead of
- * looping endlessly. */
 #define TRANSIENT_FOREACH(var, head) \
-    for((var) = (head); \
+    for((var) = con_transient_for(head); \
         (var) && (var)->window; \
         (var) = con_transient_for(var))

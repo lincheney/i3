@@ -1276,7 +1276,7 @@ void con_move_to_workspace(Con *con, Con *workspace, bool fix_coordinates, bool 
         TRANSIENT_FOREACH(current, con) transient_con = current;
 
         if (transient_con) {
-            DLOG("Floating container, moving transient_for instead\n");
+            DLOG("Floating container, moving transient_for %i instead\n", transient_con->window->id);
             con_move_to_workspace(transient_con, workspace, fix_coordinates, dont_warp, ignore_focus);
         }
         return;
@@ -2417,6 +2417,9 @@ swap_end:
 }
 
 Con* con_transient_for(Con* con) {
+    /* Some clients (e.g. x11-ssh-askpass) actually set
+     * WM_TRANSIENT_FOR to their own window id, so break instead of
+     * looping endlessly. */
     if (con && con->window && con->window->transient_for != XCB_NONE) {
         Con* transient_con = con_by_window_id(con->window->transient_for);
         if (transient_con != con) return transient_con;
