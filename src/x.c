@@ -573,8 +573,9 @@ void x_draw_decoration(Con *con) {
         goto after_title;
     }
 
+    int icon_size = config.font.height;
     if (win->icon)
-        text_offset_x = 18;
+        text_offset_x += icon_size + logical_px(2);
 
     int mark_width = 0;
     if (config.show_marks && !TAILQ_EMPTY(&(con->marks_head))) {
@@ -625,8 +626,8 @@ void x_draw_decoration(Con *con) {
 
     /* Draw the icon */
     if (win->icon) {
-        uint16_t width = 16;
-        uint16_t height = 16;
+        uint16_t width = icon_size;
+        uint16_t height = icon_size;
 
         int icon_offset_y = (con->deco_rect.height - height) / 2;
 
