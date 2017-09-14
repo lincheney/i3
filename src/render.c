@@ -224,63 +224,8 @@ void render_transient_chain(Con* con) {
         }
 }
 
-static void render_root(Con *con, Con *fullscreen) {
-    Con *output;
-    if (!fullscreen) {
-        TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
-            render_con(output, false);
-        }
-    }
-
-    /* We need to render floating windows after rendering all outputs’
-     * tiling windows because they need to be on top of *every* output at
-     * all times. This is important when the user places floating
-     * windows/containers so that they overlap on another output. */
-    DLOG("Rendering floating windows:\n");
-    TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
-        if (con_is_internal(output))
-            continue;
-        /* Get the active workspace of that output */
-        Con *content = output_get_content(output);
-        if (!content || TAILQ_EMPTY(&(content->focus_head))) {
-            DLOG("Skipping this output because it is currently being destroyed.\n");
-            continue;
-        }
-        Con *workspace = TAILQ_FIRST(&(content->focus_head));
-        Con *fullscreen = con_get_fullscreen_con(workspace, CF_OUTPUT);
-        Con *child;
-        TAILQ_FOREACH(child, &(workspace->floating_head), floating_windows) {
-            /* fullscreen is handled later on */
-            if (fullscreen) continue;
-
-            DLOG("floating child at (%d,%d) with %d x %d\n",
-                 child->rect.x, child->rect.y, child->rect.width, child->rect.height);
-            x_raise_con(child);
-            render_con(child, false);
-        }
-    }
-
-    Con* current;
-    /* always render focused con on top
-     * but not if it is detached
-     */
-    if (focused->parent)
-        TAILQ_FOREACH(current, &(focused->parent->focus_head), focused)
-            if (current == focused) {
-                /* skip if other window is fullscreen */
-                Con *fullscreen = con_get_fullscreen_con(con_get_workspace(focused), CF_OUTPUT);
-                if (fullscreen && fullscreen != focused) break;
-
-                DLOG("Rendering focused con %p on top\n", focused->parent);
-                /* render parent to fix decorations */
-                x_raise_con(focused->parent);
-                render_con(focused->parent, false);
-                render_transient_chain(focused);
-                TAILQ_FOREACH(current, &(focused->nodes_head), all_cons)
-                    render_transient_chain(current);
-                break;
-            }
-
+void render_nontransient_floating(Con* con) {
+    Con* output;
     TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
         if (con_is_internal(output))
             continue;
@@ -329,6 +274,83 @@ static void render_root(Con *con, Con *fullscreen) {
             render_transient_chain(child);
         }
     }
+}
+
+static void render_root(Con *con, Con *fullscreen) {
+    Con *output;
+    if (!fullscreen) {
+        TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
+            render_con(output, false);
+        }
+    }
+
+    /* We need to render floating windows after rendering all outputs’
+     * tiling windows because they need to be on top of *every* output at
+     * all times. This is important when the user places floating
+     * windows/containers so that they overlap on another output. */
+    DLOG("Rendering floating windows:\n");
+    TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
+        if (con_is_internal(output))
+            continue;
+        /* Get the active workspace of that output */
+        Con *content = output_get_content(output);
+        if (!content || TAILQ_EMPTY(&(content->focus_head))) {
+            DLOG("Skipping this output because it is currently being destroyed.\n");
+            continue;
+        }
+        Con *workspace = TAILQ_FIRST(&(content->focus_head));
+        Con *fullscreen = con_get_fullscreen_con(workspace, CF_OUTPUT);
+        Con *child;
+        TAILQ_FOREACH(child, &(workspace->floating_head), floating_windows) {
+            /* fullscreen is handled later on */
+            if (fullscreen) continue;
+
+            DLOG("floating child at (%d,%d) with %d x %d\n",
+                 child->rect.x, child->rect.y, child->rect.width, child->rect.height);
+            x_raise_con(child);
+            render_con(child, false);
+        }
+    }
+
+    Con* current;
+    bool render_focused = false;
+    /*
+     * rendering order:
+     *  - focused window (if not floating)
+     *  - non transient floating windows
+     *  - focused window (if floating)
+     *  - floating windows that are transient to focused window
+     */
+    if (focused->parent)
+        TAILQ_FOREACH(current, &(focused->parent->focus_head), focused)
+            if (current == focused) {
+                /* skip if other window is fullscreen */
+                Con *fullscreen = con_get_fullscreen_con(con_get_workspace(focused), CF_OUTPUT);
+                if (fullscreen && fullscreen != focused) break;
+                render_focused = true;
+
+                DLOG("Rendering focused con %p on top\n", focused->parent);
+                /* render parent to fix decorations */
+                if (con_is_floating(focused)) {
+                    /* focused is floating, render it on top */
+                    render_nontransient_floating(con);
+                    x_raise_con(focused->parent);
+                    render_con(focused->parent, false);
+                } else {
+                    /* focused not floating, render below */
+                    x_raise_con(focused->parent);
+                    render_con(focused->parent, false);
+                    render_nontransient_floating(con);
+                }
+
+                render_transient_chain(focused);
+                TAILQ_FOREACH(current, &(focused->nodes_head), all_cons)
+                    render_transient_chain(current);
+                break;
+            }
+
+    if (!render_focused)
+        render_nontransient_floating(con);
 }
 
 /*
