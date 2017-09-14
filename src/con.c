@@ -2222,6 +2222,7 @@ i3String *con_parse_title_format(Con *con) {
     char *title;
     char *class;
     char *instance;
+    char *mark = NULL;
     if (win == NULL) {
         title = pango_escape_markup(con_get_tree_representation(con));
         class = sstrdup("i3-frame");
@@ -2232,9 +2233,15 @@ i3String *con_parse_title_format(Con *con) {
         instance = pango_escape_markup(sstrdup((win->class_instance == NULL) ? "" : win->class_instance));
     }
 
+    mark_t *current;
+    TAILQ_FOREACH(current, &(con->marks_head), marks)
+        mark = current->name;
+    mark = pango_escape_markup(sstrdup(mark ? mark : ""));
+
     placeholder_t placeholders[] = {
         {.name = "%title", .value = title},
         {.name = "%class", .value = class},
+        {.name = "%mark", .value = mark},
         {.name = "%instance", .value = instance}};
     const size_t num = sizeof(placeholders) / sizeof(placeholder_t);
 
