@@ -276,6 +276,13 @@ void render_nontransient_floating(Con* con) {
     }
 }
 
+bool transient_parent_is_hidden(Con* con) {
+    if (con->window->transient_for == XCB_NONE)
+        return false;
+    Con *parent = con_transient_for(con);
+    return parent && (con_is_hidden(parent) || transient_parent_is_hidden(parent));
+}
+
 static void render_root(Con *con, Con *fullscreen) {
     Con *output;
     if (!fullscreen) {
@@ -304,6 +311,9 @@ static void render_root(Con *con, Con *fullscreen) {
         TAILQ_FOREACH(child, &(workspace->floating_head), floating_windows) {
             /* fullscreen is handled later on */
             if (fullscreen) continue;
+            /* don't render if child of hidden tabbed/stacked window */
+            Con *floating_child = con_descend_focused(child);
+            if (floating_child->window && transient_parent_is_hidden(floating_child)) continue;
 
             DLOG("floating child at (%d,%d) with %d x %d\n",
                  child->rect.x, child->rect.y, child->rect.width, child->rect.height);
