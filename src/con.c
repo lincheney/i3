@@ -1350,35 +1350,44 @@ orientation_t con_orientation(Con *con) {
  */
 Con *con_next_focused(Con *con) {
     Con *next;
-    /* floating containers are attached to a workspace, so we focus either the
-     * next floating container (if any) or the workspace itself. */
+    /*
+     * floating window: focus next/prev floating window if it is not transient
+     * otherwise, focus the workspace which should focus the parent
+     */
     if (con->type == CT_FLOATING_CON) {
         DLOG("selecting next for CT_FLOATING_CON\n");
+
         next = TAILQ_NEXT(con, floating_windows);
         DLOG("next = %p\n", next);
-        if (!next) {
-            next = TAILQ_PREV(con, floating_head, floating_windows);
-            DLOG("using prev, next = %p\n", next);
-        }
-        if (!next) {
-            Con *ws = con_get_workspace(con);
-            next = ws;
-            DLOG("no more floating containers for next = %p, restoring workspace focus\n", next);
-            while (next != TAILQ_END(&(ws->focus_head)) && !TAILQ_EMPTY(&(next->focus_head))) {
-                next = TAILQ_FIRST(&(next->focus_head));
-                if (next == con) {
-                    DLOG("skipping container itself, we want the next client\n");
-                    next = TAILQ_NEXT(next, focused);
-                }
-            }
-            if (next == TAILQ_END(&(ws->focus_head))) {
-                DLOG("Focus list empty, returning ws\n");
-                next = ws;
-            }
-        } else {
+        if (next) {
             /* Instead of returning the next CT_FLOATING_CON, we descend it to
              * get an actual window to focus. */
             next = con_descend_focused(next);
+            if (!next->window || next->window->transient_for == XCB_NONE)
+                return next;
+        }
+
+        next = TAILQ_PREV(con, floating_head, floating_windows);
+        DLOG("using prev, next = %p\n", next);
+        if (next) {
+            next = con_descend_focused(next);
+            if (!next->window || next->window->transient_for == XCB_NONE)
+                return next;
+        }
+
+        Con *ws = con_get_workspace(con);
+        next = ws;
+        DLOG("no more floating containers for next = %p, restoring workspace focus\n", next);
+        while (next != TAILQ_END(&(ws->focus_head)) && !TAILQ_EMPTY(&(next->focus_head))) {
+            next = TAILQ_FIRST(&(next->focus_head));
+            if (next == con) {
+                DLOG("skipping container itself, we want the next client\n");
+                next = TAILQ_NEXT(next, focused);
+            }
+        }
+        if (next == TAILQ_END(&(ws->focus_head))) {
+            DLOG("Focus list empty, returning ws\n");
+            next = ws;
         }
         return next;
     }
@@ -2432,4 +2441,11 @@ Con* con_transient_for(Con* con) {
         if (transient_con != con) return transient_con;
     }
     return NULL;
+}
+
+bool con_transient_parent_is_hidden(Con* con) {
+    if (con->window->transient_for == XCB_NONE)
+        return false;
+    Con *parent = con_transient_for(con);
+    return parent && (con_is_hidden(parent) || con_transient_parent_is_hidden(parent));
 }

@@ -486,6 +486,11 @@ bool con_swap(Con *first, Con *second);
  */
 Con* con_transient_for(Con* con);
 
+/**
+ * returns true if a transient parent of con is hidden
+ */
+bool con_transient_parent_is_hidden(Con* con);
+
 #define TRANSIENT_FOREACH(var, head) \
     for((var) = con_transient_for(head); \
         (var) && (var)->window; \
