@@ -277,11 +277,18 @@ void render_nontransient_floating(Con* con) {
 }
 
 static void render_root(Con *con, Con *fullscreen) {
+    Con *current;
+    if (fullscreen) {
+        // global fullscreen, just render its children
+        render_transient_chain(fullscreen);
+        TAILQ_FOREACH(current, &(fullscreen->nodes_head), all_cons)
+            render_transient_chain(current);
+        return;
+    }
+
     Con *output;
-    if (!fullscreen) {
-        TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
-            render_con(output, false);
-        }
+    TAILQ_FOREACH(output, &(con->nodes_head), nodes) {
+        render_con(output, false);
     }
 
     /* We need to render floating windows after rendering all outputs’
@@ -315,7 +322,6 @@ static void render_root(Con *con, Con *fullscreen) {
         }
     }
 
-    Con* current;
     bool render_focused = false;
     /*
      * rendering order:
@@ -327,19 +333,25 @@ static void render_root(Con *con, Con *fullscreen) {
     if (focused->parent)
         TAILQ_FOREACH(current, &(focused->parent->focus_head), focused)
             if (current == focused) {
-                /* skip if other window is fullscreen */
-                Con *fullscreen = con_get_fullscreen_con(con_get_workspace(focused), CF_OUTPUT);
-                if (fullscreen && fullscreen != focused) break;
                 render_focused = true;
+
+                /* render fullscreen con too if there is one */
+                Con *fullscreen = con_get_fullscreen_con(con_get_workspace(focused), CF_OUTPUT);
+                if (fullscreen) {
+                    /* no nontransient floats on fullscreen */
+                    fullscreen->rect = con->rect;
+                    x_raise_con(fullscreen);
+                    render_con(fullscreen, false);
+                }
 
                 DLOG("Rendering focused con %p on top\n", focused->parent);
                 /* render parent to fix decorations */
-                if (con_is_floating(focused)) {
+                if (fullscreen != focused && con_is_floating(focused)) {
                     /* focused is floating, render it on top */
                     render_nontransient_floating(con);
                     x_raise_con(focused->parent);
                     render_con(focused->parent, false);
-                } else {
+                } else if (!fullscreen) {
                     /* focused not floating, render below */
                     x_raise_con(focused->parent);
                     render_con(focused->parent, false);
