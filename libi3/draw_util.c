@@ -128,13 +128,16 @@ static void draw_util_set_source_color(surface_t *surface, color_t color) {
  *
  */
 void draw_util_text(i3String *text, surface_t *surface, color_t fg_color, color_t bg_color, int x, int y, int max_width) {
+    return draw_util_text_with_data(text, surface, fg_color, bg_color, x, y, max_width, NULL);
+}
+void draw_util_text_with_data(i3String *text, surface_t *surface, color_t fg_color, color_t bg_color, int x, int y, int max_width, void* data) {
     RETURN_UNLESS_SURFACE_INITIALIZED(surface);
 
     /* Flush any changes before we draw the text as this might use XCB directly. */
     CAIRO_SURFACE_FLUSH(surface->surface);
 
     set_font_colors(surface->gc, fg_color, bg_color);
-    draw_text(text, surface->id, surface->gc, surface->visual_type, x, y, max_width);
+    draw_text(text, surface->id, surface->gc, surface->visual_type, x, y, max_width, data);
 
     /* Notify cairo that we (possibly) used another way to draw on the surface. */
     cairo_surface_mark_dirty(surface->surface);

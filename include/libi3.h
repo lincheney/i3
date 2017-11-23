@@ -34,6 +34,9 @@
 #define XCB_BUTTON_SCROLL_LEFT 6
 #define XCB_BUTTON_SCROLL_RIGHT 7
 
+/* title format placeholders */
+#define TITLE_FORMAT_ICON_PLACEHOLDER "\x01"
+
 /**
  * XCB connection and root screen
  *
@@ -432,7 +435,7 @@ bool font_is_pango(void);
  *
  */
 void draw_text(i3String *text, xcb_drawable_t drawable, xcb_gcontext_t gc,
-               xcb_visualtype_t *visual, int x, int y, int max_width);
+               xcb_visualtype_t *visual, int x, int y, int max_width, void* data);
 
 /**
  * ASCII version of draw_text to print static strings.
@@ -600,6 +603,7 @@ color_t draw_util_hex_to_color(const char *color);
  *
  */
 void draw_util_text(i3String *text, surface_t *surface, color_t fg_color, color_t bg_color, int x, int y, int max_width);
+void draw_util_text_with_data(i3String *text, surface_t *surface, color_t fg_color, color_t bg_color, int x, int y, int max_width, void* data);
 
 /**
  * Draw the given image using libi3.

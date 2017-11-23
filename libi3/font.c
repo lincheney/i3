@@ -79,13 +79,30 @@ static bool load_pango_font(i3Font *font, const char *desc) {
     return true;
 }
 
+void shape_renderer(cairo_t *cr, PangoAttrShape *attr, gboolean do_path, gpointer data) {
+    cairo_surface_t* image = (cairo_surface_t*)attr->data;
+    double width = attr->ink_rect.width / PANGO_SCALE;
+    double height = attr->ink_rect.height / PANGO_SCALE;
+    double* scale = (double*)&data;
+
+    double  dx, dy;
+    cairo_get_current_point(cr, &dx, &dy);
+    cairo_save(cr);
+    cairo_translate(cr, dx, 0);
+    cairo_scale(cr, *scale, *scale);
+    cairo_set_source_surface(cr, image, 0, 0);
+    cairo_rectangle (cr, 0, 0, width, height);
+    cairo_fill(cr);
+    cairo_restore(cr);
+}
+
 /*
  * Draws text using Pango rendering.
  *
  */
 static void draw_text_pango(const char *text, size_t text_len,
                             xcb_drawable_t drawable, xcb_visualtype_t *visual, int x, int y,
-                            int max_width, bool pango_markup) {
+                            int max_width, bool pango_markup, void* data) {
     /* Create the Pango layout */
     /* root_visual_type is cached in load_pango_font */
     cairo_surface_t *surface = cairo_xcb_surface_create(conn, drawable,
@@ -104,8 +121,44 @@ static void draw_text_pango(const char *text, size_t text_len,
     else
         pango_layout_set_text(layout, text, text_len);
 
+    if (data) {
+        /* render any icons */
+        cairo_surface_t *image = (cairo_surface_t*)data;
+
+        PangoContext* ctxt = pango_layout_get_context(layout);
+        double x1, y1, x2 ,y2;
+        cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+
+        int image_width = cairo_image_surface_get_width(image);
+        int image_height = cairo_image_surface_get_height(image);
+        double scale = (y2 - y1) / image_height;
+
+        PangoRectangle ink_rect = {0, 0, PANGO_SCALE*image_width, PANGO_SCALE*image_height};
+        PangoRectangle logical_rect = {0, 0, PANGO_SCALE*image_width*scale, 0};
+
+        PangoAttrList* attr_list = pango_layout_get_attributes(layout);
+        PangoAttribute *attr;
+
+        void** data = (void**)&scale;
+
+        const char* pango_text = pango_layout_get_text(layout);
+        const char* match = pango_text;
+        while (1) {
+            match = strstr(match, TITLE_FORMAT_ICON_PLACEHOLDER);
+            if (! match) break;
+
+            attr = pango_attr_shape_new_with_data(&ink_rect, &logical_rect, image, NULL, NULL);
+            attr->start_index = match - pango_text;
+            attr->end_index = attr->start_index + 1;
+            pango_attr_list_insert(attr_list, attr);
+            match += 1;
+        }
+
+        pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *data, NULL);
+    }
+
     /* Do the drawing */
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     cairo_set_source_rgb(cr, pango_font_red, pango_font_green, pango_font_blue);
     pango_cairo_update_layout(cr, layout);
     pango_layout_get_pixel_size(layout, NULL, &height);
@@ -369,7 +422,7 @@ static void draw_text_xcb(const xcb_char2b_t *text, size_t text_len, xcb_drawabl
  *
  */
 void draw_text(i3String *text, xcb_drawable_t drawable, xcb_gcontext_t gc,
-               xcb_visualtype_t *visual, int x, int y, int max_width) {
+               xcb_visualtype_t *visual, int x, int y, int max_width, void* data) {
     assert(savedFont != NULL);
     if (visual == NULL) {
         visual = root_visual_type;
@@ -386,7 +439,7 @@ void draw_text(i3String *text, xcb_drawable_t drawable, xcb_gcontext_t gc,
         case FONT_TYPE_PANGO:
             /* Render the text using Pango */
             draw_text_pango(i3string_as_utf8(text), i3string_get_num_bytes(text),
-                            drawable, visual, x, y, max_width, i3string_is_markup(text));
+                            drawable, visual, x, y, max_width, i3string_is_markup(text), data);
             return;
         default:
             assert(false);
@@ -410,7 +463,7 @@ void draw_text_ascii(const char *text, xcb_drawable_t drawable,
             if (text_len > 255) {
                 /* The text is too long to draw it directly to X */
                 i3String *str = i3string_from_utf8(text);
-                draw_text(str, drawable, gc, NULL, x, y, max_width);
+                draw_text(str, drawable, gc, NULL, x, y, max_width, NULL);
                 i3string_free(str);
             } else {
                 /* X11 coordinates for fonts start at the baseline */
@@ -423,7 +476,7 @@ void draw_text_ascii(const char *text, xcb_drawable_t drawable,
         case FONT_TYPE_PANGO:
             /* Render the text using Pango */
             draw_text_pango(text, strlen(text),
-                            drawable, root_visual_type, x, y, max_width, false);
+                            drawable, root_visual_type, x, y, max_width, false, NULL);
             return;
         default:
             assert(false);

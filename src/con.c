@@ -2293,7 +2293,9 @@ i3String *con_parse_title_format(Con *con) {
         {.name = "%title", .value = title},
         {.name = "%class", .value = class},
         {.name = "%mark", .value = mark},
-        {.name = "%instance", .value = instance}};
+        {.name = "%icon", .value = sstrdup(TITLE_FORMAT_ICON_PLACEHOLDER)},
+        {.name = "%instance", .value = instance}
+    };
     const size_t num = sizeof(placeholders) / sizeof(placeholder_t);
 
     char *formatted_str = format_placeholders(con->title_format, &placeholders[0], num);
