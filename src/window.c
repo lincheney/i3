@@ -9,6 +9,8 @@
  */
 #include "all.h"
 
+#define WM_ICON_SIZE 32
+
 /*
  * Frees an i3Window and all its members.
  *
@@ -395,12 +397,12 @@ void window_update_icon(i3Window *win, xcb_get_property_reply_t *prop)
             break;
         }
 
-        if (len == 0 || (crt_len >= 16*16 && crt_len < len)) {
+        if (len == 0 || (crt_len >= WM_ICON_SIZE*WM_ICON_SIZE && crt_len < len)) {
             len = crt_len;
             data = prop_value;
         }
-        if (len == 16*16) {
-            break; /* found 16 pixels icon */
+        if (len == WM_ICON_SIZE*WM_ICON_SIZE) {
+            break; /* found WM_ICON_SIZE pixels icon */
         }
 
         /* Find pointer to next icon in the reply. */
