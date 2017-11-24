@@ -6,11 +6,11 @@ and the [title format](https://i3wm.org/docs/userguide.html#pango_markup).
 
 ## Changes
 
-* Adds `%mark` in the window `title_format`
+* Adds `%mark` in the window `title_format`.
+  This shows only the *first* mark (if any).
 * XBM icons in window decorations: https://github.com/ashinkarov/i3-extras#icons-in-i3bar
   * icons scaled to window decoration height
   * support `%icon` in the window `title_format` (so you could display the window icon multiple times if you wanted).
-  This shows only the *first* mark (if any).
 * Changes to handling of floating windows:
   * Transient floating windows are shown on the *same* workspace as their parent (and vice-versa).
     This also means moving a window across workspaces also moves the transient parent and/or the floating child windows.
