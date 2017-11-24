@@ -83,13 +83,13 @@ void shape_renderer(cairo_t *cr, PangoAttrShape *attr, gboolean do_path, gpointe
     cairo_surface_t* image = (cairo_surface_t*)attr->data;
     double width = attr->ink_rect.width / PANGO_SCALE;
     double height = attr->ink_rect.height / PANGO_SCALE;
-    double* scale = (double*)&data;
+    double scale = *(double*)&data;
 
     double  dx, dy;
     cairo_get_current_point(cr, &dx, &dy);
     cairo_save(cr);
     cairo_translate(cr, dx, 0);
-    cairo_scale(cr, *scale, *scale);
+    cairo_scale(cr, scale, scale);
     cairo_set_source_surface(cr, image, 0, 0);
     cairo_rectangle (cr, 0, 0, width, height);
     cairo_fill(cr);
@@ -139,8 +139,6 @@ static void draw_text_pango(const char *text, size_t text_len,
         PangoAttrList* attr_list = pango_layout_get_attributes(layout);
         PangoAttribute *attr;
 
-        void** data = (void**)&scale;
-
         const char* pango_text = pango_layout_get_text(layout);
         const char* match = pango_text;
         while (1) {
@@ -154,7 +152,7 @@ static void draw_text_pango(const char *text, size_t text_len,
             match += 1;
         }
 
-        pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *data, NULL);
+        pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *(void**)&scale, NULL);
     }
 
     /* Do the drawing */
