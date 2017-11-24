@@ -81,6 +81,7 @@ static bool load_pango_font(i3Font *font, const char *desc) {
 
 void shape_renderer(cairo_t *cr, PangoAttrShape *attr, gboolean do_path, gpointer data) {
     cairo_surface_t* image = (cairo_surface_t*)attr->data;
+    if (!image) return;
     double width = attr->ink_rect.width / PANGO_SCALE;
     double height = attr->ink_rect.height / PANGO_SCALE;
     double scale = 1. * attr->logical_rect.width / attr->ink_rect.width;
@@ -123,40 +124,39 @@ static void draw_text_pango(const char *text, size_t text_len,
     else
         pango_layout_set_text(layout, text, text_len);
 
+    PangoContext* ctxt = pango_layout_get_context(layout);
+    PangoRectangle ink_rect = {0, 0, 0, 0};
+    PangoRectangle logical_rect = {0, 0, 0, 0};
+
+    cairo_surface_t *image = (cairo_surface_t*)data;
     if (data) {
         /* render any icons */
-        cairo_surface_t *image = (cairo_surface_t*)data;
-
-        PangoContext* ctxt = pango_layout_get_context(layout);
-
         int image_width = cairo_image_surface_get_width(image);
         int image_height = cairo_image_surface_get_height(image);
         double scale = 1. * savedFont->height / image_height;
 
-        double x1, y1, x2 ,y2;
-        cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
-
-        PangoRectangle ink_rect = {0, 0, PANGO_SCALE*image_width, PANGO_SCALE*image_height};
-        PangoRectangle logical_rect = {0, 0, PANGO_SCALE*image_width*scale, 0};
-
-        PangoAttrList* attr_list = pango_layout_get_attributes(layout);
-        PangoAttribute *attr;
-
-        const char* pango_text = pango_layout_get_text(layout);
-        const char* match = pango_text;
-        while (1) {
-            match = strstr(match, TITLE_FORMAT_ICON_PLACEHOLDER);
-            if (! match) break;
-
-            attr = pango_attr_shape_new_with_data(&ink_rect, &logical_rect, image, NULL, NULL);
-            attr->start_index = match - pango_text;
-            attr->end_index = attr->start_index + 1;
-            pango_attr_list_insert(attr_list, attr);
-            match += 1;
-        }
-
-        pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *(void**)&y, NULL);
+        PangoRectangle _ink_rect = {0, 0, PANGO_SCALE*image_width, PANGO_SCALE*image_height};
+        PangoRectangle _logical_rect = {0, 0, PANGO_SCALE*image_width*scale, 0};
+        ink_rect = _ink_rect;
+        logical_rect = _logical_rect;
     }
+
+    PangoAttrList* attr_list = pango_layout_get_attributes(layout);
+    PangoAttribute *attr;
+
+    const char* pango_text = pango_layout_get_text(layout);
+    const char* match = pango_text;
+    while (1) {
+        match = strstr(match, TITLE_FORMAT_ICON_PLACEHOLDER);
+        if (! match) break;
+
+        attr = pango_attr_shape_new_with_data(&ink_rect, &logical_rect, image, NULL, NULL);
+        attr->start_index = match - pango_text;
+        attr->end_index = attr->start_index + 1;
+        pango_attr_list_insert(attr_list, attr);
+        match += 1;
+    }
+    pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *(void**)&y, NULL);
 
     /* Do the drawing */
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
