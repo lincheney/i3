@@ -83,12 +83,14 @@ void shape_renderer(cairo_t *cr, PangoAttrShape *attr, gboolean do_path, gpointe
     cairo_surface_t* image = (cairo_surface_t*)attr->data;
     double width = attr->ink_rect.width / PANGO_SCALE;
     double height = attr->ink_rect.height / PANGO_SCALE;
-    double scale = *(double*)&data;
+    double scale = 1. * attr->logical_rect.width / attr->ink_rect.width;
 
-    double  dx, dy;
+    double dx, dy;
     cairo_get_current_point(cr, &dx, &dy);
+    int y = *(int*)&data;
+
     cairo_save(cr);
-    cairo_translate(cr, dx, 0);
+    cairo_translate(cr, dx, y);
     cairo_scale(cr, scale, scale);
     cairo_set_source_surface(cr, image, 0, 0);
     cairo_rectangle (cr, 0, 0, width, height);
@@ -126,12 +128,13 @@ static void draw_text_pango(const char *text, size_t text_len,
         cairo_surface_t *image = (cairo_surface_t*)data;
 
         PangoContext* ctxt = pango_layout_get_context(layout);
-        double x1, y1, x2 ,y2;
-        cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
 
         int image_width = cairo_image_surface_get_width(image);
         int image_height = cairo_image_surface_get_height(image);
-        double scale = (y2 - y1) / image_height;
+        double scale = 1. * savedFont->height / image_height;
+
+        double x1, y1, x2 ,y2;
+        cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
 
         PangoRectangle ink_rect = {0, 0, PANGO_SCALE*image_width, PANGO_SCALE*image_height};
         PangoRectangle logical_rect = {0, 0, PANGO_SCALE*image_width*scale, 0};
@@ -152,7 +155,7 @@ static void draw_text_pango(const char *text, size_t text_len,
             match += 1;
         }
 
-        pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *(void**)&scale, NULL);
+        pango_cairo_context_set_shape_renderer(ctxt, shape_renderer, *(void**)&y, NULL);
     }
 
     /* Do the drawing */
