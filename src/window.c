@@ -19,7 +19,10 @@ void window_free(i3Window *win) {
     FREE(win->class_class);
     FREE(win->class_instance);
     i3string_free(win->name);
-    FREE(win->icon);
+    if (win->icon) {
+        free(cairo_image_surface_get_data(win->icon));
+        cairo_surface_destroy(win->icon);
+    }
     FREE(win->ran_assignments);
     FREE(win);
 }
@@ -373,6 +376,13 @@ void window_update_icon(i3Window *win, xcb_get_property_reply_t *prop)
 {
     uint32_t *data = NULL;
     uint64_t len = 0;
+    uint32_t *icon_data = NULL;
+
+    if (win->icon) {
+        icon_data = (uint32_t*)cairo_image_surface_get_data(win->icon);
+        cairo_surface_destroy(win->icon);
+        win->icon = NULL;
+    }
 
     if (!prop || prop->type != XCB_ATOM_CARDINAL || prop->format != 32) {
         DLOG("_NET_WM_ICON is not set\n");
@@ -419,10 +429,7 @@ void window_update_icon(i3Window *win, xcb_get_property_reply_t *prop)
     LOG("Got _NET_WM_ICON of size: (%d,%d)\n", data[0], data[1]);
     win->name_x_changed = true; /* trigger a redraw */
 
-    win->icon_width = data[0];
-    win->icon_height = data[1];
-    win->icon = srealloc(win->icon, len * 4);
-
+    icon_data = srealloc(icon_data, len*sizeof(uint32_t));
     for (uint64_t i = 0; i < len; i++) {
         uint8_t r, g, b, a;
         a = (data[2 + i] >> 24) & 0xff;
@@ -435,8 +442,15 @@ void window_update_icon(i3Window *win, xcb_get_property_reply_t *prop)
         g = (g * a) / 0xff;
         b = (b * a) / 0xff;
 
-        win->icon[i] = (a << 24) | (r << 16) | (g << 8) | b;
+        icon_data[i] = (a << 24) | (r << 16) | (g << 8) | b;
     }
+
+    win->icon = cairo_image_surface_create_for_data(
+            (unsigned char*)icon_data,
+            CAIRO_FORMAT_ARGB32,
+            data[0],
+            data[1],
+            data[0] * sizeof(uint32_t));
 
     FREE(prop);
 }

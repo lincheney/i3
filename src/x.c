@@ -610,21 +610,14 @@ void x_draw_decoration(Con *con) {
         goto copy_pixmaps;
     }
 
-    cairo_surface_t* data = win->icon ? cairo_image_surface_create_for_data(
-            (unsigned char*)win->icon,
-            CAIRO_FORMAT_ARGB32,
-            win->icon_width,
-            win->icon_width,
-            win->icon_width * 4) : NULL;
     draw_util_text_with_data(
             title, &(parent->frame_buffer),
             p->color->text, p->color->background,
             con->deco_rect.x + text_offset_x + logical_px(2),
             con->deco_rect.y + text_offset_y,
             con->deco_rect.width - text_offset_x - mark_width - 2 * logical_px(2),
-            data
+            win->icon
     );
-    if (data) cairo_surface_destroy(data);
 
     if (con->title_format != NULL) {
         I3STRING_FREE(title);
