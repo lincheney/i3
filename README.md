@@ -1,13 +1,15 @@
 # i3
 
 This is a fork of the tiling window manager [i3](https://github.com/i3/i3)
-with various changes, especially around the handling of floating windows.
+with various changes, especially around the handling of floating windows
+and the [title format](https://i3wm.org/docs/userguide.html#pango_markup).
 
 ## Changes
 
+* Adds `%mark` in the window `title_format`
 * XBM icons in window decorations: https://github.com/ashinkarov/i3-extras#icons-in-i3bar
   * icons scaled to window decoration height
-* Adds `%mark%` in the window `title_format` (https://i3wm.org/docs/userguide.html#pango_markup)
+  * support `%icon` in the window `title_format` (so you could display the window icon multiple times if you wanted).
   This shows only the *first* mark (if any).
 * Changes to handling of floating windows:
   * Transient floating windows are shown on the *same* workspace as their parent (and vice-versa).
