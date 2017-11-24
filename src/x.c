@@ -358,18 +358,18 @@ static void x_draw_decoration_after_title(Con *con, struct deco_render_params *p
 
     /* Draw a 1px separator line before and after every tab, so that tabs can
      * be easily distinguished. */
-    if (con->parent->layout == L_TABBED) {
-        /* Left side */
-        draw_util_rectangle(&(con->parent->frame_buffer), p->color->border,
-                            dr->x, dr->y, 1, dr->height);
-
-        /* Right side */
-        draw_util_rectangle(&(con->parent->frame_buffer), p->color->border,
-                            dr->x + dr->width - 1, dr->y, 1, dr->height);
-    }
+    /* if (con->parent->layout == L_TABBED) { */
+        /* [> Left side <] */
+        /* draw_util_rectangle(&(con->parent->frame_buffer), p->color->border, */
+                            /* dr->x, dr->y, 1, dr->height); */
+/*  */
+        /* [> Right side <] */
+        /* draw_util_rectangle(&(con->parent->frame_buffer), p->color->border, */
+                            /* dr->x + dr->width - 1, dr->y, 1, dr->height); */
+    /* } */
 
     /* Redraw the border. */
-    x_draw_title_border(con, p);
+    /* x_draw_title_border(con, p); */
 }
 
 /*
@@ -542,7 +542,7 @@ void x_draw_decoration(Con *con) {
                         con->deco_rect.x, con->deco_rect.y, con->deco_rect.width, con->deco_rect.height);
 
     /* 5: draw two unconnected horizontal lines in border color */
-    x_draw_title_border(con, p);
+    /* x_draw_title_border(con, p); */
 
     /* 6: draw the title */
     int text_offset_y = (con->deco_rect.height - config.font.height) / 2;
@@ -613,9 +613,9 @@ void x_draw_decoration(Con *con) {
     draw_util_text_with_data(
             title, &(parent->frame_buffer),
             p->color->text, p->color->background,
-            con->deco_rect.x + text_offset_x + logical_px(2),
+            con->deco_rect.x + text_offset_x,
             con->deco_rect.y + text_offset_y,
-            con->deco_rect.width - text_offset_x - mark_width - 2 * logical_px(2),
+            con->deco_rect.width - text_offset_x - mark_width - logical_px(2),
             win->icon
     );
 
