@@ -24,8 +24,6 @@ static void render_con_dockarea(Con *con, Con *child, render_params *p);
  */
 int render_deco_height(void) {
     int deco_height = config.font.height;
-    if (config.font.height & 0x01)
-        ++deco_height;
     return deco_height;
 }
 
