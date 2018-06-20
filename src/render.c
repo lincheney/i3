@@ -276,7 +276,7 @@ void render_nontransient_floating(Con* con) {
 
 static void render_root(Con *con, Con *fullscreen) {
     Con *current;
-    if (fullscreen) {
+    if (fullscreen && con_get_fullscreen_con(con, CF_GLOBAL)) {
         // global fullscreen, just render its children
         render_transient_chain(fullscreen);
         TAILQ_FOREACH(current, &(fullscreen->nodes_head), all_cons)
@@ -337,7 +337,8 @@ static void render_root(Con *con, Con *fullscreen) {
                 Con *fullscreen = con_get_fullscreen_con(con_get_workspace(focused), CF_OUTPUT);
                 if (fullscreen) {
                     /* no nontransient floats on fullscreen */
-                    fullscreen->rect = con->rect;
+                    Con *output = con_get_output(fullscreen);
+                    fullscreen->rect = output->rect;
                     x_raise_con(fullscreen);
                     render_con(fullscreen, false);
                 }
