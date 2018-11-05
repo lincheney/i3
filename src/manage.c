@@ -267,17 +267,13 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
         want_floating = true;
     }
 
-    Con *nc = NULL;
-    Match *match = NULL;
-    Assignment *assignment;
-
-    /* TODO: two matches for one container */
-
     /* See if any container swallows this new window */
-    nc = con_for_window(search_at, cwindow, &match);
+    Match *match = NULL;
+    Con *nc = con_for_window(search_at, cwindow, &match);
     const bool match_from_restart_mode = (match && match->restart_mode);
     if (nc == NULL) {
         Con *wm_desktop_ws = NULL;
+        Assignment *assignment;
 
         /* If not, check if it is assigned to a specific workspace */
         if ((assignment = assignment_for(cwindow, A_TO_WORKSPACE)) ||
@@ -286,13 +282,9 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
 
             Con *assigned_ws = NULL;
             if (assignment->type == A_TO_WORKSPACE_NUMBER) {
-                Con *output = NULL;
                 long parsed_num = ws_name_to_number(assignment->dest.workspace);
 
-                /* This will only work for workspaces that already exist. */
-                TAILQ_FOREACH(output, &(croot->nodes_head), nodes) {
-                    GREP_FIRST(assigned_ws, output_get_content(output), child->num == parsed_num);
-                }
+                assigned_ws = get_existing_workspace_by_num(parsed_num);
             }
             /* A_TO_WORKSPACE type assignment or fallback from A_TO_WORKSPACE_NUMBER
              * when the target workspace number does not exist yet. */
@@ -385,8 +377,16 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
             }
         }
     }
+    xcb_window_t old_frame = XCB_NONE;
     if (nc->window != cwindow && nc->window != NULL) {
         window_free(nc->window);
+        /* Match frame and window depth. This is needed because X will refuse to reparent a
+         * window whose background is ParentRelative under a window with a different depth. */
+        if (nc->depth != cwindow->depth) {
+            old_frame = nc->frame.id;
+            nc->depth = cwindow->depth;
+            x_con_reframe(nc);
+        }
     }
     nc->window = cwindow;
     x_reinit(nc);
@@ -400,9 +400,7 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
 
     /* handle fullscreen containers */
     Con *ws = con_get_workspace(nc);
-    Con *fs = (ws ? con_get_fullscreen_con(ws, CF_OUTPUT) : NULL);
-    if (fs == NULL)
-        fs = con_get_fullscreen_con(croot, CF_GLOBAL);
+    Con *fs = con_get_fullscreen_covering_ws(ws);
 
     if (xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_FULLSCREEN)) {
         /* If this window is already fullscreen (after restarting!), skip
@@ -527,6 +525,12 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
         DLOG("Window specifies minimum size %d x %d\n", wm_size_hints.min_width, wm_size_hints.min_height);
         nc->window->min_width = wm_size_hints.min_width;
         nc->window->min_height = wm_size_hints.min_height;
+    }
+
+    if (wm_size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE) {
+        DLOG("Window specifies maximum size %d x %d\n", wm_size_hints.max_width, wm_size_hints.max_height);
+        nc->window->max_width = wm_size_hints.max_width;
+        nc->window->max_height = wm_size_hints.max_height;
     }
 
     /* Store the requested geometry. The width/height gets raised to at least
@@ -662,6 +666,12 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
 
     tree_render();
 
+    /* Destroy the old frame if we had to reframe the container. This needs to be done
+     * after rendering in order to prevent the background from flickering in its place. */
+    if (old_frame != XCB_NONE) {
+        xcb_destroy_window(conn, old_frame);
+    }
+
     /* Windows might get managed with the urgency hint already set (Pidgin is
      * known to do that), so check for that and handle the hint accordingly.
      * This code needs to be in this part of manage_window() because the window
@@ -679,5 +689,4 @@ geom_out:
     free(geom);
 out:
     free(attr);
-    return;
 }
