@@ -32,7 +32,7 @@ void window_free(i3Window *win) {
  * given window.
  *
  */
-void window_update_class(i3Window *win, xcb_get_property_reply_t *prop, bool before_mgmt) {
+void window_update_class(i3Window *win, xcb_get_property_reply_t *prop) {
     if (prop == NULL || xcb_get_property_value_length(prop) == 0) {
         DLOG("WM_CLASS not set.\n");
         FREE(prop);
@@ -58,9 +58,6 @@ void window_update_class(i3Window *win, xcb_get_property_reply_t *prop, bool bef
         win->class_instance, win->class_class);
 
     free(prop);
-    if (!before_mgmt) {
-        run_assignments(win);
-    }
 }
 
 /*
@@ -68,7 +65,7 @@ void window_update_class(i3Window *win, xcb_get_property_reply_t *prop, bool bef
  * window. Further updates using window_update_name_legacy will be ignored.
  *
  */
-void window_update_name(i3Window *win, xcb_get_property_reply_t *prop, bool before_mgmt) {
+void window_update_name(i3Window *win, xcb_get_property_reply_t *prop) {
     if (prop == NULL || xcb_get_property_value_length(prop) == 0) {
         DLOG("_NET_WM_NAME not specified, not changing\n");
         FREE(prop);
@@ -95,9 +92,6 @@ void window_update_name(i3Window *win, xcb_get_property_reply_t *prop, bool befo
     win->uses_net_wm_name = true;
 
     free(prop);
-    if (!before_mgmt) {
-        run_assignments(win);
-    }
 }
 
 /*
@@ -107,7 +101,7 @@ void window_update_name(i3Window *win, xcb_get_property_reply_t *prop, bool befo
  * window_update_name()).
  *
  */
-void window_update_name_legacy(i3Window *win, xcb_get_property_reply_t *prop, bool before_mgmt) {
+void window_update_name_legacy(i3Window *win, xcb_get_property_reply_t *prop) {
     if (prop == NULL || xcb_get_property_value_length(prop) == 0) {
         DLOG("WM_NAME not set (_NET_WM_NAME is what you want anyways).\n");
         FREE(prop);
@@ -140,9 +134,6 @@ void window_update_name_legacy(i3Window *win, xcb_get_property_reply_t *prop, bo
     win->name_x_changed = true;
 
     free(prop);
-    if (!before_mgmt) {
-        run_assignments(win);
-    }
 }
 
 /*
@@ -224,7 +215,7 @@ void window_update_strut_partial(i3Window *win, xcb_get_property_reply_t *prop) 
  * Updates the WM_WINDOW_ROLE
  *
  */
-void window_update_role(i3Window *win, xcb_get_property_reply_t *prop, bool before_mgmt) {
+void window_update_role(i3Window *win, xcb_get_property_reply_t *prop) {
     if (prop == NULL || xcb_get_property_value_length(prop) == 0) {
         DLOG("WM_WINDOW_ROLE not set.\n");
         FREE(prop);
@@ -239,9 +230,6 @@ void window_update_role(i3Window *win, xcb_get_property_reply_t *prop, bool befo
     LOG("WM_WINDOW_ROLE changed to \"%s\"\n", win->role);
 
     free(prop);
-    if (!before_mgmt) {
-        run_assignments(win);
-    }
 }
 
 /*

@@ -46,6 +46,13 @@ void con_focus(Con *con);
 void con_activate(Con *con);
 
 /**
+ * Activates the container like in con_activate but removes fullscreen
+ * restrictions and properly warps the pointer if needed.
+ *
+ */
+void con_activate_unblock(Con *con);
+
+/**
  * Closes the given container.
  *
  */
@@ -548,3 +555,11 @@ bool con_transient_parent_is_hidden(Con* con);
  *
  */
 uint32_t con_rect_size_in_orientation(Con *con);
+
+/**
+ * Merges container specific data that should move with the window (e.g. marks,
+ * title format, and the window itself) into another container, and closes the
+ * old container.
+ *
+ */
+void con_merge_into(Con *old, Con *new);
