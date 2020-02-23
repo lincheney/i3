@@ -121,7 +121,7 @@ static void draw_text_pango(const char *text, size_t text_len,
 
     PangoAttrList* attr_list = NULL;
     char* markup_text = NULL;
-    const char* layout_text = text;
+    char* layout_text = text;
     if (pango_markup) {
         pango_parse_markup(text, -1, 0, &attr_list, &markup_text, NULL, NULL);
         layout_text = markup_text ? markup_text : layout_text;
@@ -165,10 +165,12 @@ static void draw_text_pango(const char *text, size_t text_len,
 
     PangoAttrIterator* iter = pango_attr_list_get_iterator(attr_list);
     do {
-        int start = 0, end = -1;
+        int start = 0, end = text_len;
         PangoAttrList* attrs = NULL;
 
         pango_attr_iterator_range(iter, &start, &end);
+        end = end <= text_len ? end : text_len;
+
         GSList* list = pango_attr_iterator_get_attrs(iter);
         if (list) attrs = pango_attr_list_new();
         while (list) {
@@ -180,8 +182,11 @@ static void draw_text_pango(const char *text, size_t text_len,
         }
         g_slist_free(list);
 
+        char c = layout_text[end];
+        layout_text[end] = 0;
+        pango_layout_set_text(layout, layout_text+start, -1);
+        layout_text[end] = c;
         pango_layout_set_attributes(layout, attrs);
-        pango_layout_set_text(layout, layout_text+start, end-start);
         pango_layout_get_pixel_size(layout, &width, &height);
         /* Center the piece of text vertically. */
         int yoffset = (height - savedFont->height) / 2;
