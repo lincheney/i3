@@ -11,6 +11,7 @@ and the [title format](https://i3wm.org/docs/userguide.html#pango_markup).
 * XBM icons in window decorations: https://github.com/ashinkarov/i3-extras#icons-in-i3bar
   * icons scaled to window decoration height
   * support `%icon` in the window `title_format` (so you could display the window icon multiple times if you wanted).
+* Vertically centers txet in the window `title_format`, taking into account font/font size.
 * Changes to handling of floating windows:
   * Transient floating windows are shown on the *same* workspace as their parent (and vice-versa).
     This also means moving a window across workspaces also moves the transient parent and/or the floating child windows.

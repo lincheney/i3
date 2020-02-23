@@ -112,17 +112,21 @@ static void draw_text_pango(const char *text, size_t text_len,
                                                         visual, x + max_width, y + savedFont->height);
     cairo_t *cr = cairo_create(surface);
     PangoLayout *layout = create_layout_with_dpi(cr);
-    gint height;
+    gint height, width;
 
     pango_layout_set_font_description(layout, savedFont->specific.pango_desc);
     pango_layout_set_width(layout, max_width * PANGO_SCALE);
     pango_layout_set_wrap(layout, PANGO_WRAP_CHAR);
     pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
 
-    if (pango_markup)
-        pango_layout_set_markup(layout, text, text_len);
-    else
-        pango_layout_set_text(layout, text, text_len);
+    PangoAttrList* attr_list = NULL;
+    char* markup_text = NULL;
+    const char* layout_text = text;
+    if (pango_markup) {
+        pango_parse_markup(text, -1, 0, &attr_list, &markup_text, NULL, NULL);
+        layout_text = markup_text ? markup_text : layout_text;
+    }
+    attr_list = attr_list ? attr_list : pango_attr_list_new();
 
     PangoContext* ctxt = pango_layout_get_context(layout);
     PangoRectangle ink_rect = {0, 0, 0, 0};
@@ -141,17 +145,13 @@ static void draw_text_pango(const char *text, size_t text_len,
         logical_rect = _logical_rect;
     }
 
-    PangoAttrList* attr_list = pango_layout_get_attributes(layout);
-    PangoAttribute *attr;
-
-    const char* pango_text = pango_layout_get_text(layout);
-    const char* match = pango_text;
+    const char* match = layout_text;
     while (1) {
         match = strstr(match, TITLE_FORMAT_ICON_PLACEHOLDER);
         if (! match) break;
 
-        attr = pango_attr_shape_new_with_data(&ink_rect, &logical_rect, image, NULL, NULL);
-        attr->start_index = match - pango_text;
+        PangoAttribute* attr = pango_attr_shape_new_with_data(&ink_rect, &logical_rect, image, NULL, NULL);
+        attr->start_index = match - layout_text;
         attr->end_index = attr->start_index + 1;
         pango_attr_list_insert(attr_list, attr);
         match += 1;
@@ -162,11 +162,36 @@ static void draw_text_pango(const char *text, size_t text_len,
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     cairo_set_source_rgb(cr, pango_font_red, pango_font_green, pango_font_blue);
     pango_cairo_update_layout(cr, layout);
-    pango_layout_get_pixel_size(layout, NULL, &height);
-    /* Center the piece of text vertically. */
-    int yoffset = (height - savedFont->height) / 2;
-    cairo_move_to(cr, x, y - yoffset);
-    pango_cairo_show_layout(cr, layout);
+
+    PangoAttrIterator* iter = pango_attr_list_get_iterator(attr_list);
+    do {
+        int start = 0, end = -1;
+        PangoAttrList* attrs = NULL;
+
+        pango_attr_iterator_range(iter, &start, &end);
+        GSList* list = pango_attr_iterator_get_attrs(iter);
+        if (list) attrs = pango_attr_list_new();
+        while (list) {
+            PangoAttribute* a = list->data;
+            a->start_index = 0;
+            a->end_index = G_MAXUINT;
+            pango_attr_list_insert(attrs, a);
+            list = list->next;
+        }
+        g_slist_free(list);
+
+        pango_layout_set_attributes(layout, attrs);
+        pango_layout_set_text(layout, layout_text+start, end-start);
+        pango_layout_get_pixel_size(layout, &width, &height);
+        /* Center the piece of text vertically. */
+        int yoffset = (height - savedFont->height) / 2;
+        cairo_move_to(cr, x, y - yoffset);
+        pango_cairo_show_layout(cr, layout);
+        x += width;
+        if (attrs) pango_attr_list_unref(attrs);
+    } while (pango_attr_iterator_next(iter));
+    pango_attr_iterator_destroy(iter);
+    free(markup_text);
 
     /* Free resources */
     g_object_unref(layout);
