@@ -169,8 +169,6 @@ static void draw_text_pango(const char *text, size_t text_len,
         PangoAttrList* attrs = NULL;
 
         pango_attr_iterator_range(iter, &start, &end);
-        end = end <= text_len ? end : text_len;
-
         GSList* list = pango_attr_iterator_get_attrs(iter);
         if (list) attrs = pango_attr_list_new();
         while (list) {
