@@ -115,6 +115,7 @@ static void draw_text_pango(const char *text, size_t text_len,
     gint height, width;
 
     pango_layout_set_font_description(layout, savedFont->specific.pango_desc);
+    pango_layout_set_width(layout, max_width * PANGO_SCALE);
     pango_layout_set_wrap(layout, PANGO_WRAP_CHAR);
     pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
 
@@ -181,7 +182,6 @@ static void draw_text_pango(const char *text, size_t text_len,
         }
         g_slist_free(list);
 
-        pango_layout_set_width(layout, max_width * PANGO_SCALE);
         pango_layout_set_attributes(layout, attrs);
         pango_layout_set_text(layout, layout_text+start, end-start);
         pango_layout_get_pixel_size(layout, &width, &height);
@@ -189,10 +189,9 @@ static void draw_text_pango(const char *text, size_t text_len,
         int yoffset = (height - savedFont->height) / 2;
         cairo_move_to(cr, x, y - yoffset);
         pango_cairo_show_layout(cr, layout);
-        if (attrs) pango_attr_list_unref(attrs);
         x += width;
-        max_width -= width;
-    } while (max_width > 0 && !pango_layout_is_ellipsized(layout) && pango_attr_iterator_next(iter));
+        if (attrs) pango_attr_list_unref(attrs);
+    } while (pango_attr_iterator_next(iter));
     pango_attr_iterator_destroy(iter);
     free(markup_text);
 
