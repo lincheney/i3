@@ -10,6 +10,7 @@
 #include "all.h"
 
 #define WM_ICON_SIZE 32
+#include <math.h>
 
 /*
  * Frees an i3Window and all its members.
@@ -294,7 +295,7 @@ bool window_update_normal_hints(i3Window *win, xcb_get_property_reply_t *reply, 
         ASSIGN_IF_CHANGED(win->max_width, max_width);
         ASSIGN_IF_CHANGED(win->max_height, max_height);
     } else {
-        DLOG("Clearing maximum size \n");
+        DLOG("Clearing maximum size\n");
 
         ASSIGN_IF_CHANGED(win->max_width, 0);
         ASSIGN_IF_CHANGED(win->max_height, 0);
