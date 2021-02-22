@@ -1156,12 +1156,7 @@ static bool handle_strut_partial_change(Con *con, xcb_get_property_reply_t *prop
     return true;
 }
 
-static bool handle_windowicon_change(void *data, xcb_connection_t *conn, uint8_t state,
-                                     xcb_window_t window, xcb_atom_t atom, xcb_get_property_reply_t *prop) {
-    Con *con;
-    if ((con = con_by_window_id(window)) == NULL || con->window == NULL)
-        return false;
-
+static bool handle_windowicon_change(Con *con, xcb_get_property_reply_t *prop) {
     window_update_icon(con->window, prop);
 
     x_push_changes(croot);
